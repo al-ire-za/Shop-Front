@@ -1,69 +1,135 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+import Header from './components/Header';
+import Sidebar from './components/Sidebar';
+import MainContent from './components/MainContent';
+import ProductDetailModal from './components/ProductDetailModal';
+import Footer from './components/Footer';
+
+// ۱. تعریف دقیق ساختار تایپ محصول
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  discount_percent: number;
+  is_new: boolean;
+  is_bestseller: boolean;
+  image: string;
+  category_id: number;
+  rating: number;
+  attributes: { key: string; value: string }[];
+  comments: { user: string; rating: number; text: string }[];
+}
+
+// داده‌های نمونه برای ۱۵ کارت اولیه
+const INITIAL_PRODUCTS: Product[] = Array.from({ length: 15 }, (_, i) => ({
+  id: i + 1,
+  name: `محصول نمونه شماره ${i + 1}`,
+  price: (i + 1) * 250000,
+  discount_percent: i % 3 === 0 ? 15 : 0,
+  is_new: i % 2 === 0,
+  is_bestseller: i % 4 === 0,
+  image: `https://picsum.photos/seed/${i + 10}/400/400`,
+  category_id: (i % 3) + 1,
+  rating: 4,
+  attributes: [
+    { key: 'برند', value: 'نمونه' },
+    { key: 'گارانتی', value: '۱۸ ماهه شرکتی' },
+  ],
+  comments: [
+    { user: 'علی', rating: 5, text: 'کیفیت عالی و ارسال سریع.' }
+  ]
+}));
+
+const CATEGORIES = [
+  { id: 1, name: 'کالای دیجیتال' },
+  { id: 2, name: 'مد و پوشاک' },
+  { id: 3, name: 'خانه و آشپزخانه' },
+];
+
+export default function HomePage() {
+  const [cartCount, setCartCount] = useState<number>(0);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null);
+  const [priceRange, setPriceRange] = useState<number>(50000000);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  // افزودن تایپ صریح Product به ورودی تابع
+  const handleAddToCart = (product: Product) => {
+    setCartCount((prev) => prev + 1);
+  };
+
+  // بارگذاری ۱۰ محصول بیشتر
+  const handleLoadMore = () => {
+    const newProducts: Product[] = Array.from({ length: 10 }, (_, i) => ({
+      id: products.length + i + 1,
+      name: `محصول جدید شماره ${products.length + i + 1}`,
+      price: (products.length + i + 1) * 200000,
+      discount_percent: 10,
+      is_new: true,
+      is_bestseller: false,
+      image: `https://picsum.photos/seed/${products.length + i + 50}/400/400`,
+      category_id: 1,
+      rating: 5,
+      attributes: [],
+      comments: []
+    }));
+
+    setProducts((prev) => [...prev, ...newProducts]);
+    if (products.length >= 35) setHasMore(false);
+  };
+
+  // اعمال فیلتر دسته‌بندی و محدوده قیمت
+  const filteredProducts = products.filter((p) => {
+    const categoryMatch = selectedCategory ? p.category_id === selectedCategory.id : true;
+    const priceMatch = p.price <= priceRange;
+    return categoryMatch && priceMatch;
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
+      {/* هدر */}
+      <Header
+        cartCount={cartCount}
+        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+      />
+
+      {/* بخش بدنه (سایدبار + محتوای اصلی) */}
+      <div className="max-w-7xl w-full mx-auto px-4 py-6 flex-1 flex gap-6 relative">
+        <Sidebar
+          categories={CATEGORIES}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          priceRange={priceRange}
+          onPriceChange={setPriceRange}
+          isOpenMobile={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        <MainContent
+          categoryName={selectedCategory?.name}
+          products={filteredProducts}
+          onAddToCart={handleAddToCart}
+          onProductClick={(product: Product) => setSelectedProduct(product)}
+          onLoadMore={handleLoadMore}
+          hasMore={hasMore}
+        />
+      </div>
+
+      {/* مودال جزییات محصول */}
+      {selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {/* فوتر */}
+      <Footer />
     </div>
   );
 }
