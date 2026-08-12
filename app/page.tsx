@@ -2,27 +2,18 @@
 
 import { useState } from 'react';
 import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import MainContent from './components/MainContent';
+import Sidebar, { Category } from './components/Sidebar';
+import MainContent, { SortOption } from './components/MainContent';
 import ProductDetailModal from './components/ProductDetailModal';
 import Footer from './components/Footer';
+import { Product } from './components/ProductCard';
 
-// ۱. تعریف دقیق ساختار تایپ محصول
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  discount_percent: number;
-  is_new: boolean;
-  is_bestseller: boolean;
-  image: string;
-  category_id: number;
-  rating: number;
-  attributes: { key: string; value: string }[];
-  comments: { user: string; rating: number; text: string }[];
-}
+const CATEGORIES: Category[] = [
+  { id: 1, name: 'کالای دیجیتال' },
+  { id: 2, name: 'مد و پوشاک' },
+  { id: 3, name: 'خانه و آشپزخانه' },
+];
 
-// داده‌های نمونه برای ۱۵ کارت اولیه
 const INITIAL_PRODUCTS: Product[] = Array.from({ length: 15 }, (_, i) => ({
   id: i + 1,
   name: `محصول نمونه شماره ${i + 1}`,
@@ -32,37 +23,29 @@ const INITIAL_PRODUCTS: Product[] = Array.from({ length: 15 }, (_, i) => ({
   is_bestseller: i % 4 === 0,
   image: `https://picsum.photos/seed/${i + 10}/400/400`,
   category_id: (i % 3) + 1,
-  rating: 4,
-  attributes: [
-    { key: 'برند', value: 'نمونه' },
-    { key: 'گارانتی', value: '۱۸ ماهه شرکتی' },
-  ],
-  comments: [
-    { user: 'علی', rating: 5, text: 'کیفیت عالی و ارسال سریع.' }
-  ]
+  rating: (i % 5) + 1,
 }));
-
-const CATEGORIES = [
-  { id: 1, name: 'کالای دیجیتال' },
-  { id: 2, name: 'مد و پوشاک' },
-  { id: 3, name: 'خانه و آشپزخانه' },
-];
 
 export default function HomePage() {
   const [cartCount, setCartCount] = useState<number>(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null);
-  const [priceRange, setPriceRange] = useState<number>(50000000);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  
+  // ۱. اضافه کردن State برای عبارت جستجو
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(50000000);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
 
-  // افزودن تایپ صریح Product به ورودی تابع
   const handleAddToCart = (product: Product) => {
     setCartCount((prev) => prev + 1);
   };
 
-  // بارگذاری ۱۰ محصول بیشتر
   const handleLoadMore = () => {
     const newProducts: Product[] = Array.from({ length: 10 }, (_, i) => ({
       id: products.length + i + 1,
@@ -74,44 +57,62 @@ export default function HomePage() {
       image: `https://picsum.photos/seed/${products.length + i + 50}/400/400`,
       category_id: 1,
       rating: 5,
-      attributes: [],
-      comments: []
     }));
 
     setProducts((prev) => [...prev, ...newProducts]);
     if (products.length >= 35) setHasMore(false);
   };
 
-  // اعمال فیلتر دسته‌بندی و محدوده قیمت
+  // ۲. اعمال فیلتر بر اساس دسته‌بندی، محدوده قیمت و متن جستجو
   const filteredProducts = products.filter((p) => {
     const categoryMatch = selectedCategory ? p.category_id === selectedCategory.id : true;
-    const priceMatch = p.price <= priceRange;
-    return categoryMatch && priceMatch;
+    const priceMatch = p.price >= minPrice && p.price <= maxPrice;
+    
+    // فیلتر نام محصول بر اساس متن جستجو
+    const searchMatch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+
+    return categoryMatch && priceMatch && searchMatch;
+  });
+
+  // ۳. مرتب‌سازی لیست خروجی
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const finalPriceA = a.price * (1 - a.discount_percent / 100);
+    const finalPriceB = b.price * (1 - b.discount_percent / 100);
+
+    if (sortBy === 'cheapest') return finalPriceA - finalPriceB;
+    if (sortBy === 'expensive') return finalPriceB - finalPriceA;
+    if (sortBy === 'popular') return (b.rating || 0) - (a.rating || 0);
+    return b.id - a.id;
   });
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
-      {/* هدر */}
+      {/* ۴. پاس دادن متغیرها و متد تغییر جستجو به Header */}
       <Header
         cartCount={cartCount}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
       />
 
-      {/* بخش بدنه (سایدبار + محتوای اصلی) */}
       <div className="max-w-7xl w-full mx-auto px-4 py-6 flex-1 flex gap-6 relative">
         <Sidebar
           categories={CATEGORIES}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
-          priceRange={priceRange}
-          onPriceChange={setPriceRange}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          onMinPriceChange={setMinPrice}
+          onMaxPriceChange={setMaxPrice}
           isOpenMobile={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         <MainContent
           categoryName={selectedCategory?.name}
-          products={filteredProducts}
+          products={sortedProducts}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
           onAddToCart={handleAddToCart}
           onProductClick={(product: Product) => setSelectedProduct(product)}
           onLoadMore={handleLoadMore}
@@ -119,7 +120,6 @@ export default function HomePage() {
         />
       </div>
 
-      {/* مودال جزییات محصول */}
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
@@ -128,7 +128,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* فوتر */}
       <Footer />
     </div>
   );
