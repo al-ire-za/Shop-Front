@@ -11,8 +11,8 @@ interface MainContentProps {
   onSortChange: (sort: SortOption) => void;
   onAddToCart: (product: Product) => void;
   onProductClick: (product: Product) => void;
-  onLoadMore: () => void;
-  hasMore: boolean;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
 }
 
 export default function MainContent({
@@ -23,7 +23,7 @@ export default function MainContent({
   onAddToCart,
   onProductClick,
   onLoadMore,
-  hasMore,
+  hasMore = false,
 }: MainContentProps) {
   return (
     <section className="flex-1 space-y-6">
@@ -62,7 +62,7 @@ export default function MainContent({
             ))}
           </div>
 
-          {hasMore && (
+          {hasMore && onLoadMore && (
             <div className="text-center pt-4">
               <button
                 onClick={onLoadMore}

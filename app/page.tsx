@@ -1,71 +1,101 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from './components/Header';
 import Sidebar, { Category } from './components/Sidebar';
 import MainContent, { SortOption } from './components/MainContent';
 import Footer from './components/Footer';
 import { Product } from './components/ProductCard';
-
-const CATEGORIES: Category[] = [
-  { id: 1, name: 'کالای دیجیتال' },
-  { id: 2, name: 'مد و پوشاک' },
-  { id: 3, name: 'خانه و آشپزخانه' },
-];
-
-const INITIAL_PRODUCTS: Product[] = Array.from({ length: 15 }, (_, i) => ({
-  id: i + 1,
-  name: `محصول نمونه شماره ${i + 1}`,
-  price: (i + 1) * 250000,
-  discount_percent: i % 3 === 0 ? 15 : 0,
-  is_new: i % 2 === 0,
-  is_bestseller: i % 4 === 0,
-  image: `https://picsum.photos/seed/${i + 10}/400/400`,
-  category_id: (i % 3) + 1,
-  rating: (i % 5) + 1,
-}));
+import api from '@/lib/api';
 
 export default function HomePage() {
-  const router = useRouter(); // اضافه شدن روتر برای هدایت به صفحه جدید
-  
+  const router = useRouter();
+
   const [cartCount, setCartCount] = useState<number>(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(50000000);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [hasMore, setHasMore] = useState<boolean>(true);
 
+  // ۱. محاسبه تعداد کل آیتم‌های داخل سبد در زمان لود صفحه
+  const updateCartCount = () => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const totalCount = savedCart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setCartCount(totalCount);
+    } catch {
+      setCartCount(0);
+    }
+  };
+
+  useEffect(() => {
+    updateCartCount();
+
+    // گوش دادن به تغییرات سبد خرید
+    window.addEventListener('cartUpdated', updateCartCount);
+    return () => window.removeEventListener('cartUpdated', updateCartCount);
+  }, []);
+
+  // دریافت اطلاعات دسته‌بندی‌ها و محصولات
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [categoriesRes, productsRes] = await Promise.all([
+          api.get('categories/'),
+          api.get('products/'),
+        ]);
+        setCategories(categoriesRes.data);
+        setProducts(productsRes.data);
+      } catch (error) {
+        console.error('Error fetching data from API:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ۲. تابع اصلی افزودن محصول به سبد خرید (ذخیره در localStorage)
   const handleAddToCart = (product: Product) => {
-    setCartCount((prev) => prev + 1);
+    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existingIndex = currentCart.findIndex((item: any) => item.id === product.id);
+
+    if (existingIndex > -1) {
+      currentCart[existingIndex].quantity += 1;
+    } else {
+      currentCart.push({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        discount_percent: product.discount_percent,
+        final_price: product.final_price,
+        image: product.image,
+        quantity: 1,
+      });
+    }
+
+    // ذخیره در دیتابیس محلی مرورگر
+    localStorage.setItem('cart', JSON.stringify(currentCart));
+
+    // ارسال ایونت برای به‌روزرسانی نشانگر سبد در هدر
+    window.dispatchEvent(new Event('cartUpdated'));
   };
 
-  const handleLoadMore = () => {
-    const newProducts: Product[] = Array.from({ length: 10 }, (_, i) => ({
-      id: products.length + i + 1,
-      name: `محصول جدید شماره ${products.length + i + 1}`,
-      price: (products.length + i + 1) * 200000,
-      discount_percent: 10,
-      is_new: true,
-      is_bestseller: false,
-      image: `https://picsum.photos/seed/${products.length + i + 50}/400/400`,
-      category_id: 1,
-      rating: 5,
-    }));
-
-    setProducts((prev) => [...prev, ...newProducts]);
-    if (products.length >= 35) setHasMore(false);
-  };
-
-  // فیلتر بر اساس دسته‌بندی، قیمت و جستجو
+  // فیلتر محصولات
   const filteredProducts = products.filter((p) => {
-    const categoryMatch = selectedCategory ? p.category_id === selectedCategory.id : true;
-    const priceMatch = p.price >= minPrice && p.price <= maxPrice;
+    const categoryMatch = selectedCategory ? p.category?.id === selectedCategory.id : true;
+    const currentPrice = p.final_price ?? p.price;
+    const priceMatch = currentPrice >= minPrice && currentPrice <= maxPrice;
     const searchMatch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
     return categoryMatch && priceMatch && searchMatch;
@@ -73,11 +103,11 @@ export default function HomePage() {
 
   // مرتب‌سازی
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const finalPriceA = a.price * (1 - a.discount_percent / 100);
-    const finalPriceB = b.price * (1 - b.discount_percent / 100);
+    const priceA = a.final_price ?? a.price;
+    const priceB = b.final_price ?? b.price;
 
-    if (sortBy === 'cheapest') return finalPriceA - finalPriceB;
-    if (sortBy === 'expensive') return finalPriceB - finalPriceA;
+    if (sortBy === 'cheapest') return priceA - priceB;
+    if (sortBy === 'expensive') return priceB - priceA;
     if (sortBy === 'popular') return (b.rating || 0) - (a.rating || 0);
     return b.id - a.id;
   });
@@ -93,7 +123,7 @@ export default function HomePage() {
 
       <div className="max-w-7xl w-full mx-auto px-4 py-6 flex-1 flex gap-6 relative">
         <Sidebar
-          categories={CATEGORIES}
+          categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           minPrice={minPrice}
@@ -104,17 +134,24 @@ export default function HomePage() {
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
-        <MainContent
-          categoryName={selectedCategory?.name}
-          products={sortedProducts}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          onAddToCart={handleAddToCart}
-          /* به جای ست کردن استیت مدال، کاربر را به مسیر پویای محصول هدایت می‌کند */
-          onProductClick={(product: Product) => router.push(`/product/${product.id}`)}
-          onLoadMore={handleLoadMore}
-          hasMore={hasMore}
-        />
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center py-20 bg-surface border border-border rounded-2xl">
+            <span className="text-sm font-bold text-muted animate-pulse">
+              در حال دریافت محصولات از سرور...
+            </span>
+          </div>
+        ) : (
+          <MainContent
+            categoryName={selectedCategory?.name}
+            products={sortedProducts}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onAddToCart={handleAddToCart}
+            onProductClick={(product: Product) => router.push(`/product/${product.id}`)}
+            onLoadMore={() => {}}
+            hasMore={false}
+          />
+        )}
       </div>
 
       <Footer />

@@ -1,57 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
-interface CartItem {
+export interface CartItem {
   id: number;
   name: string;
   price: number;
   discount_percent: number;
+  final_price: number;
   image: string;
   quantity: number;
 }
 
 export default function CartPage() {
-  // نمونه داده‌های سبد خرید محلی
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 1,
-      name: 'محصول نمونه شماره ۱',
-      price: 2500000,
-      discount_percent: 10,
-      image: 'https://picsum.photos/seed/10/400/400',
-      quantity: 1,
-    },
-    {
-      id: 2,
-      name: 'محصول نمونه شماره ۲',
-      price: 1800000,
-      discount_percent: 0,
-      image: 'https://picsum.photos/seed/11/400/400',
-      quantity: 2,
-    },
-  ]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // بارگیری سبد خرید از localStorage
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        setCartItems(JSON.parse(savedCart));
+      }
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // بروزرسانی localStorage با هر تغییر در سبد
+  const updateCartStorage = (newItems: CartItem[]) => {
+    setCartItems(newItems);
+    localStorage.setItem('cart', JSON.stringify(newItems));
+  };
 
   const handleIncrease = (id: number) => {
-    setCartItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity: item.quantity + 1 } : item))
+    const updated = cartItems.map((item) =>
+      item.id === id ? { ...item, quantity: item.quantity + 1 } : item
     );
+    updateCartStorage(updated);
   };
 
   const handleDecrease = (id: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) =>
-          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
+    const updated = cartItems
+      .map((item) =>
+        item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+      )
+      .filter((item) => item.quantity > 0);
+    updateCartStorage(updated);
   };
 
   const handleRemove = (id: number) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
+    const updated = cartItems.filter((item) => item.id !== id);
+    updateCartStorage(updated);
   };
 
   // محاسبات فاکتور
@@ -59,12 +64,22 @@ export default function CartPage() {
     (acc, item) => acc + item.price * item.quantity,
     0
   );
+
   const totalDiscount = cartItems.reduce(
     (acc, item) =>
       acc + (item.price * (item.discount_percent / 100)) * item.quantity,
     0
   );
+
   const finalPrice = rawTotalPrice - totalDiscount;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg text-text p-8 flex items-center justify-center">
+        <p className="text-sm font-bold text-muted animate-pulse">در حال بارگیری سبد خرید...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg text-text p-4 md:p-8 transition-colors duration-200">
@@ -80,7 +95,7 @@ export default function CartPage() {
               <h1 className="text-xl font-bold">سبد خرید شما</h1>
               <p className="text-xs text-muted">
                 {cartItems.length > 0
-                  ? `${cartItems.length} آیتم در سبد شما قرار دارد`
+                  ? `${cartItems.length} عنوان کالا در سبد شما قرار دارد`
                   : 'سبد خرید شما خالی است'}
               </p>
             </div>
@@ -101,8 +116,7 @@ export default function CartPage() {
             {/* لیست آیتم‌های سبد خرید */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => {
-                const itemFinalPrice =
-                  item.price * (1 - item.discount_percent / 100);
+                const itemFinalPrice = item.final_price || item.price * (1 - item.discount_percent / 100);
 
                 return (
                   <div
@@ -129,7 +143,7 @@ export default function CartPage() {
                       <div className="flex items-center border border-border bg-surface-2 rounded-xl p-1">
                         <button
                           onClick={() => handleIncrease(item.id)}
-                          className="p-1 hover:bg-surface rounded-lg text-text transition-colors"
+                          className="p-1 hover:bg-surface rounded-lg text-text transition-colors cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -138,7 +152,7 @@ export default function CartPage() {
                         </span>
                         <button
                           onClick={() => handleDecrease(item.id)}
-                          className="p-1 hover:bg-surface rounded-lg text-text transition-colors"
+                          className="p-1 hover:bg-surface rounded-lg text-text transition-colors cursor-pointer"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
@@ -153,7 +167,7 @@ export default function CartPage() {
 
                       <button
                         onClick={() => handleRemove(item.id)}
-                        className="p-2 text-danger hover:bg-surface-2 rounded-xl transition-colors"
+                        className="p-2 text-danger hover:bg-surface-2 rounded-xl transition-colors cursor-pointer"
                         title="حذف از سبد"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -195,7 +209,7 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <button className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all shadow-md">
+              <button className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all shadow-md cursor-pointer">
                 <ShieldCheck className="w-4 h-4" />
                 تکمیل و ثبت سفارش
               </button>

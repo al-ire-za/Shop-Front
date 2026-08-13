@@ -2,16 +2,29 @@
 
 import { ShoppingCart, Star } from 'lucide-react';
 
+export interface Color {
+  name: string;
+  hex: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Product {
   id: number;
   name: string;
   price: number;
   discount_percent: number;
+  final_price: number;
   is_new?: boolean;
   is_bestseller?: boolean;
   image: string;
-  category_id?: number;
+  category?: Category;
   rating?: number;
+  colors?: Color[];
 }
 
 interface ProductCardProps {
@@ -25,8 +38,6 @@ export default function ProductCard({
   onAddToCart,
   onProductClick,
 }: ProductCardProps) {
-  const finalPrice = product.price * (1 - product.discount_percent / 100);
-
   return (
     <div className="group bg-surface border border-border rounded-2xl p-3 flex flex-col justify-between hover:shadow-lg transition-all duration-300">
       
@@ -56,18 +67,25 @@ export default function ProductCard({
           />
         </div>
 
-        <div className="space-y-1.5 px-1 flex justify-between">
-          <h3 className="font-bold text-xs text-text line-clamp-2 leading-relaxed h-9 flex items-center">
-            {product.name}
-          </h3>
+        <div className="space-y-1.5 px-1 flex justify-between items-start">
+          <div className="space-y-1">
+            {product.category && (
+              <span className="text-[10px] text-muted block">{product.category.name}</span>
+            )}
+            <h3 className="font-bold text-xs text-text line-clamp-2 leading-relaxed h-9 flex items-center">
+              {product.name}
+            </h3>
+          </div>
 
-          {product.rating && (
-            <div className="flex items-center gap-1 text-[11px] text-muted">
+          {product.rating !== undefined && (
+            <div className="flex items-center gap-1 text-[11px] text-muted shrink-0 pt-1">
               <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
               <span className="font-bold text-text">{product.rating}</span>
             </div>
           )}
         </div>
+
+        
       </div>
 
       {/* قیمت و دکمه افزودن به سبد خرید */}
@@ -79,14 +97,17 @@ export default function ProductCard({
             </span>
           )}
           <span className="font-bold text-sm text-text">
-            {finalPrice.toLocaleString('fa-IR')}{' '}
+            {product.final_price.toLocaleString('fa-IR')}{' '}
             <span className="text-[10px] font-normal text-muted">تومان</span>
           </span>
         </div>
 
         <button
-          onClick={() => onAddToCart && onAddToCart(product)}
-          className="w-full py-2.5 bg-[#0d624b] hover:bg-[#0a4d3b] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+          onClick={(e) => {
+            e.stopPropagation(); // جلوگیری از باز شدن صفحه محصول
+            onAddToCart && onAddToCart(product);
+          }}
+          className="w-full py-2.5 bg-[#0d624b] hover:bg-[#0a4d3b] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm cursor-pointer"
         >
           <ShoppingCart className="w-4 h-4" />
           <span>افزودن به سبد</span>
