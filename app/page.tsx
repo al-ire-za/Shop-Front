@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from './components/Header';
 import Sidebar, { Category } from './components/Sidebar';
 import MainContent, { SortOption } from './components/MainContent';
-import ProductDetailModal from './components/ProductDetailModal';
 import Footer from './components/Footer';
 import { Product } from './components/ProductCard';
 
@@ -27,19 +27,18 @@ const INITIAL_PRODUCTS: Product[] = Array.from({ length: 15 }, (_, i) => ({
 }));
 
 export default function HomePage() {
+  const router = useRouter(); // اضافه شدن روتر برای هدایت به صفحه جدید
+  
   const [cartCount, setCartCount] = useState<number>(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   
-  // ۱. اضافه کردن State برای عبارت جستجو
   const [searchQuery, setSearchQuery] = useState<string>('');
-
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(50000000);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(true);
 
   const handleAddToCart = (product: Product) => {
@@ -63,18 +62,16 @@ export default function HomePage() {
     if (products.length >= 35) setHasMore(false);
   };
 
-  // ۲. اعمال فیلتر بر اساس دسته‌بندی، محدوده قیمت و متن جستجو
+  // فیلتر بر اساس دسته‌بندی، قیمت و جستجو
   const filteredProducts = products.filter((p) => {
     const categoryMatch = selectedCategory ? p.category_id === selectedCategory.id : true;
     const priceMatch = p.price >= minPrice && p.price <= maxPrice;
-    
-    // فیلتر نام محصول بر اساس متن جستجو
     const searchMatch = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
     return categoryMatch && priceMatch && searchMatch;
   });
 
-  // ۳. مرتب‌سازی لیست خروجی
+  // مرتب‌سازی
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const finalPriceA = a.price * (1 - a.discount_percent / 100);
     const finalPriceB = b.price * (1 - b.discount_percent / 100);
@@ -87,7 +84,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
-      {/* ۴. پاس دادن متغیرها و متد تغییر جستجو به Header */}
       <Header
         cartCount={cartCount}
         searchQuery={searchQuery}
@@ -114,19 +110,12 @@ export default function HomePage() {
           sortBy={sortBy}
           onSortChange={setSortBy}
           onAddToCart={handleAddToCart}
-          onProductClick={(product: Product) => setSelectedProduct(product)}
+          /* به جای ست کردن استیت مدال، کاربر را به مسیر پویای محصول هدایت می‌کند */
+          onProductClick={(product: Product) => router.push(`/product/${product.id}`)}
           onLoadMore={handleLoadMore}
           hasMore={hasMore}
         />
       </div>
-
-      {selectedProduct && (
-        <ProductDetailModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={handleAddToCart}
-        />
-      )}
 
       <Footer />
     </div>

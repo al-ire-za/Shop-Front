@@ -27,13 +27,13 @@ export default function MainContent({
 }: MainContentProps) {
   return (
     <section className="flex-1 space-y-6">
-      {/* هدر بخش اصلی داخل یک باکس با رنگ همسان کارت‌ها (bg-surface) */}
+      {/* هدر بخش اصلی */}
       <div className="bg-surface border border-border rounded-2xl p-4 flex items-center justify-between shadow-sm">
         <h1 className="text-base font-bold text-text">
           {categoryName ? categoryName : 'همه محصولات'}
         </h1>
 
-        {/* باکس انتخاب مرتب‌سازی سمت چپ */}
+        {/* انتخاب مرتب‌سازی */}
         <div className="flex items-center gap-2">
           <select
             value={sortBy}
@@ -57,7 +57,7 @@ export default function MainContent({
                 key={product.id}
                 product={product}
                 onAddToCart={onAddToCart}
-                onClick={() => onProductClick(product)}
+                onProductClick={onProductClick}
               />
             ))}
           </div>

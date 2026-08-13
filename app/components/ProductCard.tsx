@@ -1,5 +1,7 @@
 'use client';
 
+import { ShoppingCart, Star } from 'lucide-react';
+
 export interface Product {
   id: number;
   name: string;
@@ -8,79 +10,89 @@ export interface Product {
   is_new?: boolean;
   is_bestseller?: boolean;
   image: string;
-  category_id: number;
+  category_id?: number;
   rating?: number;
-  attributes?: { key: string; value: string }[];
-  comments?: { user: string; rating: number; text: string }[];
 }
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product) => void;
-  onClick?: () => void;
+  onAddToCart?: (product: Product) => void;
+  onProductClick?: (product: Product) => void;
 }
 
-export default function ProductCard({ product, onAddToCart, onClick }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  onAddToCart,
+  onProductClick,
+}: ProductCardProps) {
   const finalPrice = product.price * (1 - product.discount_percent / 100);
 
   return (
-    <div
-      onClick={onClick}
-      className="bg-surface border border-border rounded-2xl p-4 flex flex-col justify-between hover:border-primary/50 transition-all duration-200 cursor-pointer shadow-sm group relative"
-    >
-      {/* بج‌های بالای تصویر */}
-      <div className="absolute top-5 left-5 z-10 flex flex-col gap-1">
-        {product.is_bestseller && (
-          <span className="bg-amber-500 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-sm">
-            پرفروش
-          </span>
-        )}
-        {!product.is_bestseller && product.discount_percent > 0 && (
-          <span className="bg-secondary text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm">
-            ٪{product.discount_percent}
-          </span>
-        )}
+    <div className="group bg-surface border border-border rounded-2xl p-3 flex flex-col justify-between hover:shadow-lg transition-all duration-300">
+      
+      {/* تصویر و اطلاعات محصول */}
+      <div
+        onClick={() => onProductClick && onProductClick(product)}
+        className="cursor-pointer space-y-3"
+      >
+        <div className="relative aspect-square rounded-xl bg-surface-2 overflow-hidden flex items-center justify-center p-2">
+          <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+            {product.is_new && (
+              <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                جدید
+              </span>
+            )}
+            {product.is_bestseller && (
+              <span className="bg-secondary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                پرفروش
+              </span>
+            )}
+          </div>
+
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-64 h-64 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+
+        <div className="space-y-1.5 px-1 flex justify-between">
+          <h3 className="font-bold text-xs text-text line-clamp-2 leading-relaxed h-9 flex items-center">
+            {product.name}
+          </h3>
+
+          {product.rating && (
+            <div className="flex items-center gap-1 text-[11px] text-muted">
+              <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
+              <span className="font-bold text-text">{product.rating}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* تصویر محصول بدون هیچ بک‌گراند رنگی اضافه */}
-      <div className="aspect-square w-full rounded-2xl mb-3 overflow-hidden flex items-center justify-center p-2">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-64 h-64 object-contain group-hover:scale-105 transition-transform duration-300 rounded-xl"
-        />
-      </div>
-
-      {/* مشخصات، قیمت و دکمه سبد خرید */}
-      <div className="space-y-3 px-1">
-        <h3 className="font-bold text-sm text-text line-clamp-1 leading-relaxed">
-          {product.name}
-        </h3>
-
-        {/* قیمت */}
-        <div className="flex items-center justify-end gap-2 text-left">
-          <span className="font-bold text-base text-text">
-            {finalPrice.toLocaleString('fa-IR')}{' '}
-            <span className="text-xs font-normal text-muted">تومان</span>
-          </span>
+      {/* قیمت و دکمه افزودن به سبد خرید */}
+      <div className="pt-3 border-t border-border mt-3 space-y-3">
+        <div className="flex flex-col items-start px-1 flex-row-reverse">
           {product.discount_percent > 0 && (
-            <span className="text-xs text-muted line-through">
+            <span className="text-[11px] text-muted line-through">
               {product.price.toLocaleString('fa-IR')}
             </span>
           )}
+          <span className="font-bold text-sm text-text">
+            {finalPrice.toLocaleString('fa-IR')}{' '}
+            <span className="text-[10px] font-normal text-muted">تومان</span>
+          </span>
         </div>
 
-        {/* دکمه سبد خرید کاملاً عریض */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddToCart(product);
-          }}
-          className="w-full bg-[#0d624b] hover:bg-[#0a4d3b] text-white py-2.5 rounded-xl font-bold text-xs transition-all active:scale-[0.98] shadow-sm"
+          onClick={() => onAddToCart && onAddToCart(product)}
+          className="w-full py-2.5 bg-[#0d624b] hover:bg-[#0a4d3b] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
         >
-          افزودن به سبد
+          <ShoppingCart className="w-4 h-4" />
+          <span>افزودن به سبد</span>
         </button>
       </div>
+
     </div>
   );
 }
