@@ -116,8 +116,6 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
       <Header
         cartCount={cartCount}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
       />
 
@@ -146,6 +144,8 @@ export default function HomePage() {
             products={sortedProducts}
             sortBy={sortBy}
             onSortChange={setSortBy}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
             onAddToCart={handleAddToCart}
             onProductClick={(product: Product) => router.push(`/product/${product.id}`)}
             onLoadMore={() => {}}

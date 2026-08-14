@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, Star, CheckCircle2, MessageSquare, ArrowRight, PlusCircle, Check } from 'lucide-react';
+import { ShoppingCart, Star, CheckCircle2, MessageSquare, PlusCircle, Check } from 'lucide-react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import api from '@/lib/api';
@@ -48,6 +48,23 @@ export default function ProductDetailPage() {
 
   const productId = params?.id;
 
+  // ۱. محاسبه تعداد کل آیتم‌های سبد خرید و همگام‌سازی با localStorage
+  const updateCartCount = () => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const totalCount = savedCart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setCartCount(totalCount);
+    } catch {
+      setCartCount(0);
+    }
+  };
+
+  useEffect(() => {
+    updateCartCount();
+    window.addEventListener('cartUpdated', updateCartCount);
+    return () => window.removeEventListener('cartUpdated', updateCartCount);
+  }, []);
+
   // دریافت اطلاعات محصول از بک‌اند
   useEffect(() => {
     if (!productId) return;
@@ -60,7 +77,6 @@ export default function ProductDetailPage() {
         
         setProduct(data);
         
-        // ست کردن مستقیم عکس اصلی محصول دریافت شده از بک‌اند
         if (data.image) {
           setSelectedImage(data.image);
         }
@@ -78,8 +94,29 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [productId]);
 
+  // ۲. افزودن واقعی محصول به سبد خرید در localStorage
   const handleAddToCart = () => {
-    setCartCount((prev) => prev + 1);
+    if (!product) return;
+
+    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existingIndex = currentCart.findIndex((item: any) => item.id === product.id);
+
+    if (existingIndex > -1) {
+      currentCart[existingIndex].quantity += 1;
+    } else {
+      currentCart.push({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        discount_percent: product.discount_percent,
+        final_price: product.final_price || product.price * (1 - (product.discount_percent || 0) / 100),
+        image: product.image,
+        quantity: 1,
+      });
+    }
+
+    localStorage.setItem('cart', JSON.stringify(currentCart));
+    window.dispatchEvent(new Event('cartUpdated'));
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -145,17 +182,7 @@ export default function ProductDetailPage() {
       <Header cartCount={cartCount} onOpenMobileSidebar={() => {}} />
 
       <main className="max-w-4xl w-full mx-auto px-4 py-8 flex-1 space-y-8">
-        {/* دکمه بازگشت */}
-        <div>
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer"
-          >
-            <ArrowRight className="w-4 h-4" />
-            <span>بازگشت به صفحه قبل</span>
-          </button>
-        </div>
-
+        
         {/* کارت اصلی محصول */}
         <div className="bg-surface border border-border rounded-3xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-start">
           
@@ -170,9 +197,8 @@ export default function ProductDetailPage() {
               />
             </div>
 
-            {/* گالری تصاویر کوچک (شامل عکس اصلی + عکس‌های اضافه) */}
+            {/* گالری تصاویر کوچک */}
             <div className="flex gap-2 overflow-x-auto max-w-64 pb-1">
-              {/* عکس اصلی کاور */}
               <button
                 onClick={() => setSelectedImage(product.image)}
                 className={`w-12 h-12 rounded-lg border overflow-hidden shrink-0 transition-all cursor-pointer ${
@@ -182,7 +208,6 @@ export default function ProductDetailPage() {
                 <img src={product.image} className="w-full h-full object-cover" />
               </button>
 
-              {/* عکس‌های گالری از Model ProductImage */}
               {product.images && product.images.map((img) => (
                 <button
                   key={img.id}

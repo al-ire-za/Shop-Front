@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 export interface CartItem {
   id: number;
@@ -16,26 +18,34 @@ export interface CartItem {
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartCount, setCartCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // بارگیری سبد خرید از localStorage
-  useEffect(() => {
+  // بارگیری سبد خرید و محاسبه تعداد برای هدر
+  const syncCartData = () => {
     try {
-      const savedCart = localStorage.getItem('cart');
-      if (savedCart) {
-        setCartItems(JSON.parse(savedCart));
-      }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
-    } finally {
-      setLoading(false);
+      const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      setCartItems(savedCart);
+      const total = savedCart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setCartCount(total);
+    } catch {
+      setCartItems([]);
+      setCartCount(0);
     }
+  };
+
+  useEffect(() => {
+    syncCartData();
+    setLoading(false);
+
+    window.addEventListener('cartUpdated', syncCartData);
+    return () => window.removeEventListener('cartUpdated', syncCartData);
   }, []);
 
-  // بروزرسانی localStorage با هر تغییر در سبد
   const updateCartStorage = (newItems: CartItem[]) => {
     setCartItems(newItems);
     localStorage.setItem('cart', JSON.stringify(newItems));
+    window.dispatchEvent(new Event('cartUpdated'));
   };
 
   const handleIncrease = (id: number) => {
@@ -59,7 +69,7 @@ export default function CartPage() {
     updateCartStorage(updated);
   };
 
-  // محاسبات فاکتور
+  // محاسبات مالی
   const rawTotalPrice = cartItems.reduce(
     (acc, item) => acc + item.price * item.quantity,
     0
@@ -73,18 +83,11 @@ export default function CartPage() {
 
   const finalPrice = rawTotalPrice - totalDiscount;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-bg text-text p-8 flex items-center justify-center">
-        <p className="text-sm font-bold text-muted animate-pulse">در حال بارگیری سبد خرید...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-bg text-text p-4 md:p-8 transition-colors duration-200">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
+    <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
+      <Header cartCount={cartCount} onOpenMobileSidebar={() => {}} />
+
+      <main className="max-w-6xl w-full mx-auto px-4 py-8 flex-1 space-y-6">
         {/* هدر صفحه سبد خرید */}
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-3">
@@ -101,19 +104,17 @@ export default function CartPage() {
             </div>
           </div>
 
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-xs font-bold text-muted hover:text-primary transition-colors"
-          >
-            <ArrowRight className="w-4 h-4" />
-            بازگشت به فروشگاه
-          </Link>
+          
         </div>
 
-        {cartItems.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-20">
+            <p className="text-xs font-bold text-muted animate-pulse">در حال بارگیری سبد خرید...</p>
+          </div>
+        ) : cartItems.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* لیست آیتم‌های سبد خرید */}
+            {/* لیست آیتم‌ها */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => {
                 const itemFinalPrice = item.final_price || item.price * (1 - item.discount_percent / 100);
@@ -132,13 +133,12 @@ export default function CartPage() {
                       <div className="space-y-1">
                         <h3 className="font-bold text-sm text-text">{item.name}</h3>
                         <div className="text-xs text-muted">
-                          قیمت واحد:{' '}
-                          {itemFinalPrice.toLocaleString('fa-IR')} تومان
+                          قیمت واحد: {itemFinalPrice.toLocaleString('fa-IR')} تومان
                         </div>
                       </div>
                     </div>
 
-                    {/* کنترلهای تعداد و حذف */}
+                    {/* دکمه‌های کنترل تعداد و حذف */}
                     <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t sm:border-t-0 border-border pt-3 sm:pt-0">
                       <div className="flex items-center border border-border bg-surface-2 rounded-xl p-1">
                         <button
@@ -160,8 +160,7 @@ export default function CartPage() {
 
                       <div className="text-left">
                         <div className="font-bold text-sm text-text">
-                          {(itemFinalPrice * item.quantity).toLocaleString('fa-IR')}{' '}
-                          تومان
+                          {(itemFinalPrice * item.quantity).toLocaleString('fa-IR')} تومان
                         </div>
                       </div>
 
@@ -178,7 +177,7 @@ export default function CartPage() {
               })}
             </div>
 
-            {/* پیش‌فاکتور و تسویه حساب */}
+            {/* پیش‌فاکتور نهایی */}
             <div className="bg-surface border border-border rounded-2xl p-6 space-y-6 h-fit shadow-sm">
               <h2 className="font-bold text-base border-b border-border pb-3">
                 خلاصه سفارش
@@ -228,8 +227,9 @@ export default function CartPage() {
             </Link>
           </div>
         )}
+      </main>
 
-      </div>
+      <Footer />
     </div>
   );
 }

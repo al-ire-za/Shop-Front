@@ -1,27 +1,31 @@
 'use client';
 
-import { ShoppingBag, Search, Menu, User, Sun, Moon } from 'lucide-react';
+import { ShoppingBag, Menu, User, Sun, Moon, Home } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 interface HeaderProps {
   cartCount: number;
-  searchQuery?: string;
-  onSearchChange?: (value: string) => void;
-  onOpenMobileSidebar: () => void;
+  onOpenMobileSidebar?: () => void;
 }
 
 export default function Header({
   cartCount,
-  searchQuery = '',
-  onSearchChange,
   onOpenMobileSidebar,
 }: HeaderProps) {
+  const pathname = usePathname(); // گرفتن آدرس صفحه فعلی
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+
+  const isAuthPage = pathname === '/login';
 
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
     setIsDarkMode(isDark);
+
+    const token = localStorage.getItem('access_token');
+    setIsLoggedIn(!!token);
   }, []);
 
   const toggleTheme = () => {
@@ -38,14 +42,16 @@ export default function Header({
     <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-border transition-colors">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         
-        {/* سمت راست: لوگو و منوی موبایل */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenMobileSidebar}
-            className="md:hidden p-2 text-text hover:bg-surface-2 rounded-xl border border-border"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+        {/* سمت راست: لوگو و آیکون خانه */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {onOpenMobileSidebar && (
+            <button
+              onClick={onOpenMobileSidebar}
+              className="md:hidden p-2 text-text hover:bg-surface-2 rounded-xl border border-border cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
 
           <Link href="/" className="flex items-center gap-2">
             <div className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-sm">
@@ -53,27 +59,22 @@ export default function Header({
             </div>
             <span className="font-bold text-base hidden sm:inline-block">فروشگاه آنلاین</span>
           </Link>
+
+          <Link
+            href="/"
+            title="صفحه اصلی"
+            className="p-2 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors flex items-center justify-center"
+          >
+            <Home className="w-5 h-5 text-primary" />
+          </Link>
         </div>
 
-        {/* وسط: باکس جستجو */}
-        <div className="flex-1 max-w-md mx-2">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-              placeholder="جستجوی محصول..."
-              className="w-full bg-surface-2 text-text placeholder:text-muted border border-border rounded-xl pr-10 pl-4 py-2 text-xs focus:outline-none focus:border-primary transition-all"
-            />
-            <Search className="w-4 h-4 text-muted absolute right-3 top-2.5" />
-          </div>
-        </div>
-
-        {/* سمت چپ: تغییر تم، ورود / ثبت‌نام و سبد خرید */}
+        {/* سمت چپ: تغییر تم، حساب/ورود و سبد خرید */}
         <div className="flex items-center gap-2">
+          {/* دکمه تم */}
           <button
             onClick={toggleTheme}
-            className="p-2.5 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors flex items-center justify-center"
+            className="p-2.5 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors flex items-center justify-center cursor-pointer"
             title={isDarkMode ? 'حالت روشن' : 'حالت تاریک'}
           >
             {isDarkMode ? (
@@ -83,15 +84,28 @@ export default function Header({
             )}
           </button>
 
-          {/* دکمه ورود / ثبت‌نام که به صفحه لاگین هدایت می‌کند */}
-          <Link
-            href="/login"
-            className="p-2.5 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors flex items-center gap-2 text-xs font-bold"
-          >
-            <User className="w-5 h-5 text-primary" />
-            <span className="hidden sm:inline">ورود / ثبت‌نام</span>
-          </Link>
+          {/* اگر در صفحه لاگین بودیم، هیچ دکمه ورودی نشان داده نمی‌شود */}
+          {!isAuthPage && (
+            isLoggedIn ? (
+              <Link
+                href="/profile"
+                title="پروفایل کاربری"
+                className="p-2.5 text-text bg-primary/10 hover:bg-primary/20 rounded-xl border border-primary/30 transition-colors flex items-center gap-2 text-xs font-bold"
+              >
+                <User className="w-5 h-5 text-primary" />
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="p-2.5 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors flex items-center gap-2 text-xs font-bold"
+              >
+                <User className="w-5 h-5 text-primary" />
+                <span className="hidden sm:inline">ورود / ثبت‌نام</span>
+              </Link>
+            )
+          )}
 
+          {/* سبد خرید */}
           <Link href="/cart" className="relative">
             <div className="p-2.5 text-text hover:bg-surface-2 rounded-xl border border-border transition-colors relative">
               <ShoppingBag className="w-5 h-5 text-primary" />
