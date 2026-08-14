@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import api from '@/lib/api';
 
 export interface CartItem {
   id: number;
@@ -17,9 +19,11 @@ export interface CartItem {
 }
 
 export default function CartPage() {
+  const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartCount, setCartCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [orderLoading, setOrderLoading] = useState<boolean>(false);
 
   // بارگیری سبد خرید و محاسبه تعداد برای هدر
   const syncCartData = () => {
@@ -48,25 +52,51 @@ export default function CartPage() {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
+  // ارسال تغییر تعداد یا حذف به سرور در صورت لاگین بودن
+  const syncChangeWithBackend = async (productId: number, newQty: number) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      try {
+        await api.patch(
+          'cart/',
+          {
+            product_id: productId,
+            quantity: newQty,
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+      } catch (err) {
+        console.error('Error syncing cart change with server:', err);
+      }
+    }
+  };
+
   const handleIncrease = (id: number) => {
-    const updated = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+    const item = cartItems.find((i) => i.id === id);
+    const newQty = (item?.quantity || 0) + 1;
+    const updated = cartItems.map((i) =>
+      i.id === id ? { ...i, quantity: newQty } : i
     );
     updateCartStorage(updated);
+    syncChangeWithBackend(id, newQty);
   };
 
   const handleDecrease = (id: number) => {
+    const item = cartItems.find((i) => i.id === id);
+    const newQty = (item?.quantity || 0) - 1;
     const updated = cartItems
-      .map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity - 1 } : item
-      )
-      .filter((item) => item.quantity > 0);
+      .map((i) => (i.id === id ? { ...i, quantity: newQty } : i))
+      .filter((i) => i.quantity > 0);
     updateCartStorage(updated);
+    syncChangeWithBackend(id, newQty);
   };
 
   const handleRemove = (id: number) => {
     const updated = cartItems.filter((item) => item.id !== id);
     updateCartStorage(updated);
+    syncChangeWithBackend(id, 0); // ارسال صفر باعث حذف کامل در دیتابیس بک‌اند می‌شود
   };
 
   // محاسبات مالی
@@ -82,6 +112,61 @@ export default function CartPage() {
   );
 
   const finalPrice = rawTotalPrice - totalDiscount;
+
+  // تکمیل و ثبت سفارش
+  const handleCheckout = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('لطفاً ابتدا وارد حساب کاربری خود شوید.');
+      router.push('/login');
+      return;
+    }
+
+    try {
+      setOrderLoading(true);
+
+      // دریافت پروفایل برای آدرس و نام
+      const profileRes = await api.get('accounts/profile/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const userProfile = profileRes.data;
+
+      const defaultAddress =
+        userProfile.addresses && userProfile.addresses.length > 0
+          ? `${userProfile.addresses[0].city}، ${userProfile.addresses[0].full_address}`
+          : 'آدرس ثبت‌نشده';
+
+      const payload = {
+        full_name: `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || userProfile.username,
+        phone_number: userProfile.phone_number || '09000000000',
+        address: defaultAddress,
+        total_price: finalPrice,
+        items: cartItems.map((item) => ({
+          product: item.id,
+          price: item.final_price || item.price,
+          quantity: item.quantity,
+        })),
+      };
+
+      await api.post('orders/create/', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // پاک‌سازی سبد خرید پس از ثبت موفق
+      localStorage.removeItem('cart');
+      setCartItems([]);
+      setCartCount(0);
+      window.dispatchEvent(new Event('cartUpdated'));
+
+      alert('سفارش شما با موفقیت ثبت شد!');
+      router.push('/profile');
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      alert('خطا در ثبت نهایی سفارش. لطفاً اطلاعات پروفایل و آدرس خود را بررسی کنید.');
+    } finally {
+      setOrderLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text transition-colors duration-200">
@@ -104,7 +189,13 @@ export default function CartPage() {
             </div>
           </div>
 
-          
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-xs font-bold text-muted hover:text-primary transition-colors"
+          >
+            <ArrowRight className="w-4 h-4" />
+            بازگشت به فروشگاه
+          </Link>
         </div>
 
         {loading ? (
@@ -113,11 +204,11 @@ export default function CartPage() {
           </div>
         ) : cartItems.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
             {/* لیست آیتم‌ها */}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => {
-                const itemFinalPrice = item.final_price || item.price * (1 - item.discount_percent / 100);
+                const itemFinalPrice =
+                  item.final_price || item.price * (1 - item.discount_percent / 100);
 
                 return (
                   <div
@@ -208,12 +299,15 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <button className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all shadow-md cursor-pointer">
+              <button
+                onClick={handleCheckout}
+                disabled={orderLoading}
+                className="w-full bg-primary text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all shadow-md cursor-pointer disabled:opacity-50"
+              >
                 <ShieldCheck className="w-4 h-4" />
-                تکمیل و ثبت سفارش
+                <span>{orderLoading ? 'در حال ثبت سفارش...' : 'تکمیل و ثبت سفارش'}</span>
               </button>
             </div>
-
           </div>
         ) : (
           <div className="text-center py-16 bg-surface border border-border rounded-3xl space-y-4">

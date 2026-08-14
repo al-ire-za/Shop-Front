@@ -119,17 +119,26 @@ export default function ProductDetailPage() {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
-  const handleAddComment = async (e: React.FormEvent) => {
+ const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommentText.trim() || !productId) return;
 
     try {
       setSubmittingComment(true);
-      const res = await api.post(`products/${productId}/add_comment/`, {
-        rating: newCommentRating,
-        text: newCommentText.trim(),
-      });
+      const token = localStorage.getItem('access_token');
 
+      // ارسال درخواست به مسیر درست backend همراه با شناسه product
+      const res = await api.post(
+        'comments/add/',
+        {
+          product: Number(productId),
+          rating: newCommentRating,
+          text: newCommentText.trim(),
+        },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+      );
+
+      // اضافه شدن کامنت به استیت محصول برای نمایش آنی
       if (product) {
         setProduct({
           ...product,
@@ -137,9 +146,10 @@ export default function ProductDetailPage() {
         });
       }
 
+      // ریست کردن فرم
       setNewCommentText('');
       setShowCommentForm(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error posting comment:', error);
       alert('خطا در ثبت دیدگاه. لطفاً دوباره تلاش کنید.');
     } finally {

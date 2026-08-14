@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Store, User, Phone, Lock, UserCheck, ArrowRight, ShieldCheck, Mail } from 'lucide-react';
-import Link from 'next/link';
+import { Store, User, Phone, Lock, UserCheck, ShieldCheck, Mail } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import api from '@/lib/api';
@@ -27,7 +26,7 @@ export default function AuthPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // خواندن تعداد سبد خرید برای نمایش صحیح در هدر
+  // خواندن تعداد سبد خرید برای نمایش در هدر
   useEffect(() => {
     try {
       const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -92,19 +91,35 @@ export default function AuthPage() {
 
     try {
       if (isLoginTab) {
-        // ۱. لاگین
+        // ۱. ارسال درخواست لاگین
         const response = await api.post('accounts/login/', {
           username: formData.username,
           password: formData.password,
         });
 
         if (response.data.access) {
-          localStorage.setItem('access_token', response.data.access);
+          const token = response.data.access;
+          localStorage.setItem('access_token', token);
           localStorage.setItem('refresh_token', response.data.refresh);
+
+          // ۲. دریافت سبد خرید کاربر از دیتابیس و قرار دادن در LocalStorage
+          try {
+            const cartRes = await api.get('cart/', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            localStorage.setItem('cart', JSON.stringify(cartRes.data || []));
+          } catch (err) {
+            console.error('Error fetching user cart:', err);
+            localStorage.setItem('cart', '[]');
+          }
+
+          // ۳. اطلاع‌رسانی به هدر و سایر کامپوننت‌ها برای همگام‌سازی تعداد سبد خرید
+          window.dispatchEvent(new Event('cartUpdated'));
+
           router.push('/');
         }
       } else {
-        // ۲. ثبت‌نام
+        // ۲. ارسال درخواست ثبت‌نام
         await api.post('accounts/register/', {
           username: formData.username,
           email: formData.email,
@@ -340,7 +355,7 @@ export default function AuthPage() {
         </div>
       </main>
 
-      
+      <Footer />
     </div>
   );
 }

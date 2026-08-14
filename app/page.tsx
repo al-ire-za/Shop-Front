@@ -65,8 +65,9 @@ export default function HomePage() {
     fetchData();
   }, []);
 
-  // ۲. تابع اصلی افزودن محصول به سبد خرید (ذخیره در localStorage)
-  const handleAddToCart = (product: Product) => {
+  // ۲. تابع اصلی افزودن محصول به سبد خرید (ذخیره در localStorage + ارسال به سرور)
+  const handleAddToCart = async (product: Product) => {
+    // ۱. آپدیت LocalStorage برای سرعت بالای رابط کاربری
     const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
     const existingIndex = currentCart.findIndex((item: any) => item.id === product.id);
 
@@ -78,17 +79,27 @@ export default function HomePage() {
         name: product.name,
         price: product.price,
         discount_percent: product.discount_percent,
-        final_price: product.final_price,
+        final_price: product.final_price || product.price * (1 - (product.discount_percent || 0) / 100),
         image: product.image,
         quantity: 1,
       });
     }
 
-    // ذخیره در دیتابیس محلی مرورگر
     localStorage.setItem('cart', JSON.stringify(currentCart));
-
-    // ارسال ایونت برای به‌روزرسانی نشانگر سبد در هدر
     window.dispatchEvent(new Event('cartUpdated'));
+
+    // ۲. ارسال ریکوئست به جنگو برای ذخیره در اکانت کاربر لاگین‌شده
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      try {
+        await api.post('cart/', {
+          product_id: product.id,
+          quantity: 1,
+        });
+      } catch (error) {
+        console.error('Error syncing cart with backend:', error);
+      }
+    }
   };
 
   // فیلتر محصولات
