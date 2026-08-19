@@ -14,11 +14,14 @@ export default function Header({
   cartCount,
   onOpenMobileSidebar,
 }: HeaderProps) {
-  const pathname = usePathname(); // گرفتن آدرس صفحه فعلی
+  const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const isAuthPage = pathname === '/login';
+  
+  // بررسی اینکه آیا صفحه جاری، صفحه جزئیات محصول است یا خیر
+  const isProductDetailPage = pathname.startsWith('/products/') || pathname.startsWith('/product/');
 
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
@@ -42,9 +45,9 @@ export default function Header({
     <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-border transition-colors">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         
-        {/* سمت راست: لوگو و آیکون خانه */}
+        {/* سمت راست: منوی همبرگری (فقط در صفحات دسته‌بندی و اصلی)، لوگو و آیکون خانه */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {onOpenMobileSidebar && (
+          {!isProductDetailPage && onOpenMobileSidebar && (
             <button
               onClick={onOpenMobileSidebar}
               className="md:hidden p-2 text-text hover:bg-surface-2 rounded-xl border border-border cursor-pointer"
