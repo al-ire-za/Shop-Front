@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, MapPin, Plus, LogOut, Check, X } from 'lucide-react';
+import { User, MapPin, Plus, LogOut, Check, X, Package, ShoppingBag } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import api from '@/lib/api';
@@ -14,6 +14,27 @@ interface Address {
   city: string;
   full_address: string;
   postal_code: string;
+}
+
+interface OrderItem {
+  id: number;
+  product: number;
+  product_name: string;
+  product_image: string;
+  price: number;
+  quantity: number;
+}
+
+interface UserOrder {
+  id: number;
+  full_name: string;
+  phone_number: string;
+  address: string;
+  total_price: number;
+  status: string;
+  status_display?: string;
+  order_items: OrderItem[];
+  created_at: string;
 }
 
 interface UserProfile {
@@ -29,6 +50,7 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [orders, setOrders] = useState<UserOrder[]>([]);
   const [cartCount, setCartCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
@@ -68,6 +90,7 @@ export default function ProfilePage() {
     }
 
     fetchProfile(token);
+    fetchOrders(token);
   }, [router]);
 
   const fetchProfile = async (token: string) => {
@@ -89,6 +112,17 @@ export default function ProfilePage() {
       router.push('/login');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrders = async (token: string) => {
+    try {
+      const res = await api.get('orders/my-orders/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrders(res.data || []);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
     }
   };
 
@@ -365,6 +399,75 @@ export default function ProfilePage() {
                   !showAddressForm && <p className="text-xs text-muted text-center py-4">هنوز آدرسی ثبت نکرده‌اید.</p>
                 )}
               </div>
+            </div>
+
+            {/* بخش تاریخچه سفارش‌ها */}
+            <div className="bg-surface border border-border rounded-3xl p-6 shadow-sm space-y-4 md:col-span-2">
+              <h2 className="text-sm font-bold border-b border-border pb-3 flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" />
+                <span>تاریخچه سفارش‌های من ({orders.length})</span>
+              </h2>
+
+              {orders.length > 0 ? (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="bg-surface-2 border border-border rounded-2xl p-4 space-y-3 text-xs"
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-border/50 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-text">کد سفارش: #{order.id}</span>
+                          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold text-[10px]">
+                            {order.status_display || order.status}
+                          </span>
+                        </div>
+                        <div className="text-muted text-[11px]">
+                          تاریخ: {new Date(order.created_at).toLocaleDateString('fa-IR')}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row justify-between gap-2">
+                        <div className="space-y-1 text-muted text-[11px]">
+                          <div>تحویل‌گیرنده: <span className="text-text font-bold">{order.full_name}</span> ({order.phone_number})</div>
+                          <div className="line-clamp-1">آدرس: {order.address}</div>
+                        </div>
+                        <div className="text-left font-bold text-sm text-text shrink-0 self-end sm:self-center">
+                          مبلغ کل: {order.total_price.toLocaleString('fa-IR')} تومان
+                        </div>
+                      </div>
+
+                      {order.order_items && order.order_items.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pt-2 border-t border-border/30">
+                          {order.order_items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-2 bg-surface p-2 rounded-xl border border-border shrink-0"
+                            >
+                              {item.product_image && (
+                                <img
+                                  src={item.product_image}
+                                  alt={item.product_name}
+                                  className="w-8 h-8 rounded-lg object-contain bg-surface-2"
+                                />
+                              )}
+                              <div className="space-y-0.5">
+                                <span className="font-bold text-[11px] text-text block max-w-32 truncate">{item.product_name}</span>
+                                <span className="text-[10px] text-muted">{item.quantity} عدد × {item.price.toLocaleString('fa-IR')} تومان</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-border rounded-2xl space-y-2">
+                  <ShoppingBag className="w-10 h-10 text-muted mx-auto opacity-30" />
+                  <p className="text-xs text-muted">هنوز هیچ سفارشی ثبت نکرده‌اید.</p>
+                </div>
+              )}
             </div>
 
           </div>

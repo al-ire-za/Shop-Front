@@ -23,13 +23,23 @@ export default function Header({
   // بررسی اینکه آیا صفحه جاری، صفحه جزئیات محصول است یا خیر
   const isProductDetailPage = pathname.startsWith('/products/') || pathname.startsWith('/product/');
 
+  const checkAuth = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    setIsLoggedIn(!!token);
+  };
+
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
     setIsDarkMode(isDark);
+    checkAuth();
 
-    const token = localStorage.getItem('access_token');
-    setIsLoggedIn(!!token);
-  }, []);
+    window.addEventListener('authUpdated', checkAuth);
+    window.addEventListener('storage', checkAuth);
+    return () => {
+      window.removeEventListener('authUpdated', checkAuth);
+      window.removeEventListener('storage', checkAuth);
+    };
+  }, [pathname]);
 
   const toggleTheme = () => {
     if (isDarkMode) {

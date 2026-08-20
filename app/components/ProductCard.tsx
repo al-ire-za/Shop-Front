@@ -63,7 +63,7 @@ export default function ProductCard({
           <img
             src={product.image}
             alt={product.name}
-            className="w-64 h-64 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain rounded-lg group-hover:scale-105 transition-transform duration-300"
           />
         </div>
 
@@ -107,7 +107,7 @@ export default function ProductCard({
             e.stopPropagation(); // جلوگیری از باز شدن صفحه محصول
             onAddToCart && onAddToCart(product);
           }}
-          className="w-full py-2.5 bg-[#0d624b] hover:bg-[#0a4d3b] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm cursor-pointer"
+          className="w-full py-2.5 bg-primary hover:opacity-90 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm cursor-pointer"
         >
           <ShoppingCart className="w-4 h-4" />
           <span>افزودن به سبد</span>

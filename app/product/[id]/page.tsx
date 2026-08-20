@@ -94,8 +94,8 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [productId]);
 
-  // ۲. افزودن واقعی محصول به سبد خرید در localStorage
-  const handleAddToCart = () => {
+  // ۲. افزودن واقعی محصول به سبد خرید در localStorage و همگام‌سازی با سرور
+  const handleAddToCart = async () => {
     if (!product) return;
 
     const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -117,6 +117,19 @@ export default function ProductDetailPage() {
 
     localStorage.setItem('cart', JSON.stringify(currentCart));
     window.dispatchEvent(new Event('cartUpdated'));
+
+    // ارسال به سرور در صورت لاگین بودن
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      try {
+        await api.post('cart/', {
+          product_id: product.id,
+          quantity: 1,
+        });
+      } catch (error) {
+        console.error('Error syncing cart with backend:', error);
+      }
+    }
   };
 
  const handleAddComment = async (e: React.FormEvent) => {
@@ -301,7 +314,7 @@ export default function ProductDetailPage() {
 
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-[#0d624b] hover:bg-[#0a4d3b] text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
+                className="w-full bg-primary hover:opacity-90 text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md cursor-pointer"
               >
                 <ShoppingCart className="w-4 h-4" />
                 <span>افزودن به سبد خرید</span>

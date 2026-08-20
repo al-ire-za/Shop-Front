@@ -135,16 +135,16 @@ export default function CartPage() {
     const token = localStorage.getItem('access_token');
     try {
       setCouponLoading(true);
-      // ارسال درخواست بررسی کوپن به بک‌اند
+      // ارسال درخواست بررسی کوپن به بک‌اند همراه با مبلغ کل سبد
       const res = await api.post(
         'orders/apply-coupon/',
-        { code: couponCode },
+        { code: couponCode, total_price: basePayable },
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
-      // مقدار تخفیف بازگشتی (مبلغ یا درصد محاسبه‌شده)
+      // مقدار تخفیف بازگشتی
       setCouponDiscount(res.data.discount_amount || 0);
       setAppliedCoupon(couponCode);
-      alert('کد تخفیف با موفقیت اعمال شد.');
+      alert(res.data.message || 'کد تخفیف با موفقیت اعمال شد.');
     } catch (err: any) {
       alert(err.response?.data?.message || 'کد تخفیف وارد شده نامعتبر یا منقضی است.');
       setCouponDiscount(0);

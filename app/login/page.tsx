@@ -37,9 +37,17 @@ export default function AuthPage() {
     }
   }, []);
 
+  // تابع تبدیل اعداد فارسی و عربی به انگلیسی
+  const toEnglishDigits = (str: string) => {
+    return str
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const normalizedValue = name === 'phone_number' || name === 'username' ? toEnglishDigits(value) : value;
+    setFormData((prev) => ({ ...prev, [name]: normalizedValue }));
     setServerMessage(null);
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
@@ -51,9 +59,12 @@ export default function AuthPage() {
     const phoneRegex = /^09[0-9]{9}$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!formData.username.trim()) {
+    const username = toEnglishDigits(formData.username.trim());
+    const phone = toEnglishDigits(formData.phone_number.trim());
+
+    if (!username) {
       newErrors.username = 'نام کاربری الزامی است.';
-    } else if (formData.username.length < 3) {
+    } else if (username.length < 3) {
       newErrors.username = 'نام کاربری باید حداقل ۳ کاراکتر باشد.';
     }
 
@@ -67,7 +78,7 @@ export default function AuthPage() {
       if (!formData.email.trim() || !emailRegex.test(formData.email)) {
         newErrors.email = 'ایمیل معتبر الزامی است.';
       }
-      if (!phoneRegex.test(formData.phone_number)) {
+      if (!phoneRegex.test(phone)) {
         newErrors.phone_number = 'شماره موبایل معتبر نیست (مثال: 09123456789).';
       }
     }
@@ -91,10 +102,20 @@ export default function AuthPage() {
 
     try {
       if (isLoginTab) {
-        // ۱. ارسال درخواست لاگین
+        // آماده‌سازی سبد خرید محلی مهمان برای ادغام در سرور
+        const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const guestCartMap: { [key: string]: number } = {};
+        savedCart.forEach((item: any) => {
+          if (item.id) {
+            guestCartMap[item.id] = item.quantity || 1;
+          }
+        });
+
+        // ۱. ارسال درخواست لاگین همراه با سبد مهمان
         const response = await api.post('accounts/login/', {
-          username: formData.username,
+          username: toEnglishDigits(formData.username.trim()),
           password: formData.password,
+          guest_cart: guestCartMap,
         });
 
         if (response.data.access) {
@@ -102,7 +123,7 @@ export default function AuthPage() {
           localStorage.setItem('access_token', token);
           localStorage.setItem('refresh_token', response.data.refresh);
 
-          // ۲. دریافت سبد خرید کاربر از دیتابیس و قرار دادن در LocalStorage
+          // ۲. دریافت سبد خرید ادغام‌شده کاربر از دیتابیس و قرار دادن در LocalStorage
           try {
             const cartRes = await api.get('cart/', {
               headers: { Authorization: `Bearer ${token}` },
@@ -110,22 +131,22 @@ export default function AuthPage() {
             localStorage.setItem('cart', JSON.stringify(cartRes.data || []));
           } catch (err) {
             console.error('Error fetching user cart:', err);
-            localStorage.setItem('cart', '[]');
           }
 
-          // ۳. اطلاع‌رسانی به هدر و سایر کامپوننت‌ها برای همگام‌سازی تعداد سبد خرید
+          // ۳. اطلاع‌رسانی به هدر و سایر کامپوننت‌ها برای همگام‌سازی
           window.dispatchEvent(new Event('cartUpdated'));
+          window.dispatchEvent(new Event('authUpdated'));
 
           router.push('/');
         }
       } else {
         // ۲. ارسال درخواست ثبت‌نام
         await api.post('accounts/register/', {
-          username: formData.username,
-          email: formData.email,
-          phone_number: formData.phone_number,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
+          username: toEnglishDigits(formData.username.trim()),
+          email: formData.email.trim(),
+          phone_number: toEnglishDigits(formData.phone_number.trim()),
+          first_name: formData.first_name.trim(),
+          last_name: formData.last_name.trim(),
           password: formData.password,
         });
 
